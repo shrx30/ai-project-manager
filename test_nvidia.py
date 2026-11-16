@@ -1,17 +1,36 @@
+
 import os
+
 from dotenv import load_dotenv
-from langchain_nvidia_ai_endpoints import ChatNVIDIA
+from github import Github, Auth
 
-load_dotenv()
+from app.tools.github import GitHubService
 
-llm = ChatNVIDIA(
-    model="meta/muse-glimmer-30b",
-    api_key=os.getenv("NVIDIA_API_KEY"),
-    temperature=0,
-    max_completion_tokens=512,
-    timeout=180,
-)
+load_dotenv(override=True)
 
-response = llm.invoke("Say hello in one sentence.")
+token = os.getenv("GITHUB_TOKEN")
 
-print(response.content)
+if not token:
+    raise ValueError("GITHUB_TOKEN not found in .env")
+
+print("GitHub token loaded:", bool(token))
+
+# Create authenticated client
+auth = Auth.Token(token)
+client = Github(auth=auth)
+
+try:
+    github_service = GitHubService(client)
+
+    issues = github_service.list_issues(
+        owner=os.getenv("GITHUB_REPO_OWNER"),
+        repo_name=os.getenv("GITHUB_REPO_NAME"),
+    )
+
+    print(f"Fetched {len(issues)} issues")
+
+    for issue in issues:
+        print(f"#{issue.number}: {issue.title}")
+
+finally:
+    client.close()
